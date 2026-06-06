@@ -19,7 +19,7 @@ class WhatsAppController extends Controller
         return Inertia::render('Merchant/WhatsAppIntegration', [
             'isConnected' => $integration?->is_connected ?? false,
             'phoneNumber' => $integration?->phone_number,
-            'webhookUrl' => $integration?->is_connected ? route('api.webhook.whatsapp') : null,
+            'webhookUrl' => $integration?->is_connected ? route('webhook.whatsapp') : null,
             'verifyToken' => config('services.whatsapp.webhook_verify_token'),
         ]);
     }

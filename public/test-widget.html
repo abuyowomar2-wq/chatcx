@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>اختبار Widget المحادثة</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Tajawal', 'Segoe UI', Tahoma, sans-serif; background: #f1f5f9; }
+        .container { max-width: 600px; margin: 50px auto; padding: 20px; }
+        h1 { text-align: center; color: #1e293b; margin-bottom: 20px; }
+        .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+        p { color: #64748b; line-height: 1.8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 موقع تجريبي - متجر سلة</h1>
+        <div class="card">
+            <h2 style="margin-bottom: 16px;">مرحباً بكم في متجرنا</h2>
+            <p>هذه صفحة اختبار لـ Widget المحادثة.<br>
+            اضغط على أيقونة الشات في الأسفل لبدء المحادثة.</p>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            var settings = {
+                "tenant_id": 2,
+                "primary_color": "#0ea5e9",
+                "position": "bottom-right",
+                "title": "تحدث معنا",
+                "subtitle": "نحن هنا لمساعدتك",
+                "welcome_message": "مرحباً! كيف يمكننا مساعدتك اليوم؟",
+                "api_url": "http://localhost:8000/api"
+            };
+            var s = document.createElement('script');
+            s.src = settings.api_url + '/widget/widget.js';
+            s.async = true;
+            s.onload = function() { ChatCXWidget.init(settings); };
+            document.head.appendChild(s);
+        })();
+    </script>
+</body>
+</html>
