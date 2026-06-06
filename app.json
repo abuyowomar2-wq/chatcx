@@ -1,0 +1,29 @@
+{
+  "name": "ChatCX",
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "heroku/php"
+    },
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "APP_ENV": {
+      "value": "production"
+    },
+    "APP_DEBUG": {
+      "value": "false"
+    },
+    "LOG_CHANNEL": {
+      "value": "errorlog"
+    },
+    "QUEUE_CONNECTION": {
+      "value": "database"
+    },
+    "BROADCAST_DRIVER": {
+      "value": "reverb"
+    }
+  }
+}
