@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'default' => env('BROADCAST_DRIVER', 'reverb'),
+    'default' => env('BROADCAST_DRIVER', 'log'),
     'connections' => [
         'reverb' => [
             'driver' => 'reverb',
