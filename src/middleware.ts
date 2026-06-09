@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
 
-export async function middleware(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isPublicPath =
@@ -22,24 +21,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  const token =
+    req.cookies.get("next-auth.session-token")?.value ||
+    req.cookies.get("__Secure-next-auth.session-token")?.value;
 
   if (!token) {
     const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("callbackUrl", req.url);
     return NextResponse.redirect(loginUrl);
-  }
-
-  const isSuperAdminPath = pathname.startsWith("/super-admin");
-  if (isSuperAdminPath) {
-    const isSuperAdmin = token.isSuperAdmin as boolean;
-    const email = token.email as string;
-    if (!isSuperAdmin || email !== process.env.OWNER_EMAIL) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
   }
 
   return NextResponse.next();
