@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,11 +15,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [source, setSource] = useState("");
 
-  useEffect(() => {
-    fetchCustomers();
-  }, [search, source]);
-
-  async function fetchCustomers() {
+  const fetchCustomers = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
@@ -29,7 +25,11 @@ export default function CustomersPage() {
     const data = await res.json();
     if (data.success) setCustomers(data.data);
     setLoading(false);
-  }
+  }, [search, source]);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
 
   return (
     <div className="space-y-6">

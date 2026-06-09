@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Menu, Bell } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/notifications/unread-count")
+      .then((r) => r.json())
+      .then((d) => d.success && setUnreadNotifs(d.data?.count || 0))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950" dir="rtl">
@@ -40,9 +48,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <button className="relative p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-gray-800">
             <Bell className="h-5 w-5" />
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-              3
-            </span>
+            {unreadNotifs > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                {unreadNotifs > 9 ? "9+" : unreadNotifs}
+              </span>
+            )}
           </button>
 
           <Avatar className="h-8 w-8">

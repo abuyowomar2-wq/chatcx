@@ -55,7 +55,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        token.id = user.id as string;
         token.isSuperAdmin = (user as any).isSuperAdmin;
         token.organizations = (user as any).organizations;
       }

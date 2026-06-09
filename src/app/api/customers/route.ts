@@ -49,6 +49,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: "No organization" }, { status: 400 });
   }
 
+  const member = await (await import("@/server/db/prisma")).prisma.organizationMember.findUnique({
+    where: { organizationId_userId: { organizationId: orgId, userId: session.user.id } },
+  });
+  if (!member || member.role === "VIEWER") {
+    return NextResponse.json({ success: false, error: "Not authorized" }, { status: 403 });
+  }
+
   const body = await req.json();
   const customer = await findOrCreateCustomer({
     organizationId: orgId,

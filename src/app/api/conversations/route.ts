@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getConversations, createConversation } from "@/server/services/conversation-service";
+import { getConversations } from "@/server/services/conversation-service";
+import { prisma } from "@/server/db/prisma";
 import type { ConversationStatus } from "@/generated/prisma";
 
 export async function GET(req: Request) {
@@ -19,16 +20,21 @@ export async function GET(req: Request) {
   const assignedAgentId = url.searchParams.get("assignedAgentId");
   const unassigned = url.searchParams.get("unassigned") === "true";
   const customerId = url.searchParams.get("customerId");
-  const search = url.searchParams.get("search");
   const page = parseInt(url.searchParams.get("page") || "1");
   const limit = parseInt(url.searchParams.get("limit") || "50");
 
+  const member = await prisma.organizationMember.findUnique({
+    where: { organizationId_userId: { organizationId: orgId, userId: session.user.id } },
+  });
+
+  const effectiveAgentId =
+    member?.role === "AGENT" ? session.user.id : (assignedAgentId || undefined);
+
   const result = await getConversations(orgId, {
     status: status || undefined,
-    assignedAgentId: assignedAgentId || undefined,
+    assignedAgentId: effectiveAgentId,
     unassigned: unassigned || undefined,
     customerId: customerId || undefined,
-    search: search || undefined,
     limit,
     offset: (page - 1) * limit,
   });

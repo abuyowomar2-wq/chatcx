@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Search, ExternalLink } from "lucide-react";
+import { Search } from "lucide-react";
 
 const statusColors: Record<string, "success" | "warning" | "info" | "secondary" | "destructive"> = {
   pending: "warning",
@@ -29,11 +29,7 @@ export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
 
-  useEffect(() => {
-    fetchOrders();
-  }, [search, status]);
-
-  async function fetchOrders() {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
@@ -43,7 +39,11 @@ export default function OrdersPage() {
     const data = await res.json();
     if (data.success) setOrders(data.data);
     setLoading(false);
-  }
+  }, [search, status]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   return (
     <div className="space-y-6">

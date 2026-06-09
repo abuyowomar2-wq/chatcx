@@ -24,6 +24,8 @@ export async function GET() {
     totalOrders,
     sallaConn,
     whatsappConn,
+    recentConversations,
+    messages,
   ] = await Promise.all([
     prisma.conversation.count({ where: { organizationId: orgId, status: { not: "CLOSED" } } }),
     prisma.conversation.count({ where: { organizationId: orgId, unreadCount: { gt: 0 } } }),
@@ -32,19 +34,50 @@ export async function GET() {
     prisma.order.count({ where: { organizationId: orgId } }),
     prisma.sallaConnection.findUnique({ where: { organizationId: orgId } }),
     prisma.whatsAppConnection.findUnique({ where: { organizationId: orgId } }),
+    prisma.conversation.findMany({
+      where: { organizationId: orgId, deletedAt: null },
+      include: { customer: { select: { name: true } } },
+      orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
+      take: 5,
+    }),
+    prisma.message.findMany({
+      where: { organizationId: orgId, direction: "OUTBOUND" },
+      select: { createdAt: true, conversationId: true },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    }),
   ]);
+
+  let avgResponseTimeMinutes = 0;
+  if (messages.length > 0) {
+    const responses = messages.filter((m) => m.createdAt != null);
+    if (responses.length > 0) {
+      const now = Date.now();
+      const avgMs = responses.reduce((sum, msg) => {
+        const diff = now - msg.createdAt.getTime();
+        return sum + Math.min(diff, 3600000);
+      }, 0) / responses.length;
+      avgResponseTimeMinutes = avgMs / 60000;
+    }
+  }
 
   return NextResponse.json({
     success: true,
     data: {
-      totalConversationsToday: todayConversations,
       openConversations,
       unreadConversations,
-      avgResponseTime: 2.5,
+      totalConversationsToday: todayConversations,
       newCustomersToday,
       totalOrders,
       sallaConnected: sallaConn?.isConnected || false,
       whatsappConnected: whatsappConn?.isConnected || false,
+      avgResponseTimeMinutes,
+      recentConversations: recentConversations.map((c) => ({
+        id: c.id,
+        customerName: c.customer?.name,
+        lastMessagePreview: c.lastMessagePreview,
+        lastMessageAt: c.lastMessageAt?.toISOString() || null,
+      })),
     },
   });
 }

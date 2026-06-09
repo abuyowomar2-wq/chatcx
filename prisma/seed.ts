@@ -235,7 +235,6 @@ async function main() {
   }
 
   // Demo conversations
-  const conversationStatuses = ["OPEN", "PENDING_CUSTOMER", "PENDING_AGENT", "CLOSED"] as const;
   const conversationMessages = [
     { inbound: "السلام عليكم، عندي استفسار عن طلبي", outbound: "وعليكم السلام ورحمة الله، كيف أقدر أساعدك؟" },
     { inbound: "وين طلبي رقم ORD-1001؟", outbound: "أهلاً بك، خليني أتفقد طلبك حاليًا" },
