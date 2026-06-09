@@ -9,7 +9,7 @@
     "lint": "eslint",
     "seed": "npx tsx prisma/seed.ts",
     "db:push": "npx prisma db push",
-    "db:generate": "npx prisma generate",
+    "db:generate": "npx prisma generate && node -e \"var f=require('fs');var p='src/generated/prisma/index.ts';f.writeFileSync(p,'export { PrismaClient } from \\\"./client\\\";\\nexport * from \\\"./enums\\\";\\nexport * from \\\"./models\\\";\\n')\"",
     "db:studio": "npx prisma studio"
   },
   "prisma": {
