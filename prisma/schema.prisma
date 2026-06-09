@@ -1,0 +1,846 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MANAGER
+  AGENT
+  VIEWER
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING_CUSTOMER
+  PENDING_AGENT
+  CLOSED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum IntegrationType {
+  SALLA
+  WHATSAPP
+  OPENAI
+  BILLING
+}
+
+enum WebhookProvider {
+  SALLA
+  WHATSAPP
+}
+
+enum ClientRequestType {
+  ACTIVATION
+  INTEGRATION
+  TECHNICAL
+  UPGRADE
+  INVOICE
+  SUPPORT
+}
+
+enum ClientRequestStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum AutomationTriggerType {
+  NEW_MESSAGE
+  NEW_ORDER
+  ORDER_STATUS_CHANGED
+  NEW_CUSTOMER
+  CONVERSATION_IDLE
+  KEYWORD_MATCHED
+  SLA_BREACH
+}
+
+enum AutomationActionType {
+  SEND_MESSAGE
+  ADD_TAG
+  ASSIGN_AGENT
+  CHANGE_PRIORITY
+  ADD_NOTE
+  SEND_NOTIFICATION
+  RUN_AI_SUGGESTION
+  CREATE_TASK
+}
+
+enum MessageSource {
+  WHATSAPP
+  SYSTEM
+  INTERNAL_NOTE
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String?
+  name           String?
+  avatarUrl      String?
+  phone          String?
+  emailVerified  DateTime?
+  isActive       Boolean  @default(true)
+  isSuperAdmin   Boolean  @default(false)
+  lastLoginAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organizationMembers OrganizationMember[]
+  invitationsSent     Invitation[]         @relation("SentInvitations")
+  assignedConversations Conversation[]  @relation("AssignedAgent")
+  closedConversations   Conversation[]  @relation("ClosedBy")
+  sentMessages          Message[]       @relation("Sender")
+  internalNotes         InternalNote[]
+  automationRuns        AutomationRun[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  createdInvoices       Invoice[]       @relation("InvoiceCreator")
+  assignedClientRequests ClientRequest[] @relation("ClientRequestAssignee")
+
+  @@index([email])
+  @@index([isSuperAdmin])
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  timezone    String   @default("Asia/Riyadh")
+  locale      String   @default("ar")
+  businessHoursEnabled Boolean @default(false)
+  businessHoursWeekdays String?
+  businessHoursStart    String?
+  businessHoursEnd      String?
+  autoCloseAfterMinutes Int?
+  welcomeMessage        String?
+  awayMessage           String?
+  conversationDistribution String @default("manual")
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  members              OrganizationMember[]
+  invitations          Invitation[]
+  customers            Customer[]
+  conversations        Conversation[]
+  orders               Order[]
+  products             Product[]
+  tags                 Tag[]
+  savedReplies         SavedReply[]
+  whatsappTemplates    WhatsAppTemplate[]
+  automations          Automation[]
+  aiSettings           AiSettings?
+  knowledgeBase        KnowledgeBaseArticle[]
+  sallaConnections     SallaConnection[]
+  whatsappConnections  WhatsAppConnection[]
+  subscriptions        Subscription[]
+  invoices             Invoice[]
+  clientRequests       ClientRequest[]
+  notifications        Notification[]
+  webhookEvents        WebhookEvent[]
+  integrationErrors    IntegrationError[]
+  auditLogs            AuditLog[]
+  apiUsages            ApiUsage[]
+  messageQuotaUsages   MessageQuotaUsage[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrgRole
+  isActive       Boolean  @default(true)
+  lastActivityAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Invitation {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  role           OrgRole
+  token          String   @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("SentInvitations", fields: [invitedById], references: [id])
+
+  @@index([token])
+  @@index([email])
+  @@index([organizationId])
+}
+
+model SallaConnection {
+  id              String   @id @default(cuid())
+  organizationId  String   @unique
+  accessToken     String
+  refreshToken    String
+  expiresAt       DateTime
+  merchantId      String?
+  merchantName    String?
+  storeUrl        String?
+  scopes          String?
+  isConnected     Boolean  @default(false)
+  lastSyncAt      DateTime?
+  lastErrorAt     DateTime?
+  lastErrorMessage String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model WhatsAppConnection {
+  id              String   @id @default(cuid())
+  organizationId  String   @unique
+  wabaId          String?
+  phoneNumberId   String?
+  phoneNumber     String?
+  accessToken     String
+  verifyToken     String?
+  appSecret       String?
+  businessName    String?
+  isConnected     Boolean  @default(false)
+  webhookVerified Boolean  @default(false)
+  lastErrorAt     DateTime?
+  lastErrorMessage String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Customer {
+  id                  String   @id @default(cuid())
+  organizationId      String
+  externalSallaId     String?
+  name                String?
+  phone               String?
+  normalizedPhone     String?
+  email               String?
+  city                String?
+  totalOrders         Int      @default(0)
+  totalSpent          Float    @default(0)
+  lastOrderAt         DateTime?
+  firstSeenAt         DateTime?
+  source              String   @default("whatsapp")
+  notes               String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  deletedAt           DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  tags         CustomerTag[]
+  conversations Conversation[]
+  messages     Message[]
+  identities   CustomerIdentity[]
+
+  @@unique([organizationId, normalizedPhone])
+  @@unique([organizationId, externalSallaId])
+  @@index([organizationId])
+  @@index([organizationId, phone])
+  @@index([organizationId, name])
+}
+
+model CustomerIdentity {
+  id         String   @id @default(cuid())
+  customerId String
+  provider   String
+  externalId String
+  rawData    Json?
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([customerId])
+}
+
+model Conversation {
+  id              String             @id @default(cuid())
+  organizationId  String
+  customerId      String
+  assignedAgentId String?
+  channel         String             @default("whatsapp")
+  status          ConversationStatus @default(OPEN)
+  priority        String             @default("normal")
+  source          String             @default("whatsapp")
+  subject         String?
+  lastMessageAt   DateTime?
+  lastMessagePreview String?
+  unreadCount     Int                @default(0)
+  closedAt        DateTime?
+  closedById      String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer       Customer     @relation(fields: [customerId], references: [id])
+  assignedAgent  User?        @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  messages       Message[]
+  internalNotes  InternalNote[]
+  tags           ConversationTag[]
+  closedBy       User?        @relation("ClosedBy", fields: [closedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, assignedAgentId])
+  @@index([organizationId, customerId])
+  @@index([organizationId, lastMessageAt])
+  @@index([organizationId, priority])
+}
+
+model Message {
+  id             String          @id @default(cuid())
+  organizationId String
+  conversationId String
+  senderId       String?
+  customerId     String?
+  direction      MessageDirection
+  source         MessageSource   @default(WHATSAPP)
+  body           String
+  mediaUrl       String?
+  mediaType      String?
+  status         MessageStatus   @default(SENT)
+  externalMsgId  String?
+  errorMessage   String?
+  metadata       Json?
+  isAiSuggested  Boolean         @default(false)
+  isAiSent       Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation("Sender", fields: [senderId], references: [id])
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  attachments  MessageAttachment[]
+
+  @@index([conversationId, createdAt])
+  @@index([organizationId, conversationId])
+  @@index([externalMsgId])
+}
+
+model MessageAttachment {
+  id        String   @id @default(cuid())
+  messageId String
+  type      String
+  url       String
+  name      String?
+  size      Int?
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model InternalNote {
+  id             String   @id @default(cuid())
+  organizationId String
+  conversationId String
+  authorId       String
+  body           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id])
+
+  @@index([conversationId])
+  @@index([authorId])
+}
+
+model Tag {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  color          String   @default("#6366f1")
+  createdAt      DateTime @default(now())
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customers       CustomerTag[]
+  conversations   ConversationTag[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model CustomerTag {
+  id         String   @id @default(cuid())
+  customerId String
+  tagId      String
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, tagId])
+  @@index([customerId])
+  @@index([tagId])
+}
+
+model ConversationTag {
+  id             String   @id @default(cuid())
+  conversationId String
+  tagId          String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tag          Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, tagId])
+  @@index([conversationId])
+  @@index([tagId])
+}
+
+model Order {
+  id                  String   @id @default(cuid())
+  organizationId      String
+  customerId          String
+  externalSallaId     String?
+  orderNumber         String?
+  status              String   @default("pending")
+  subtotal            Float    @default(0)
+  total               Float    @default(0)
+  discountAmount      Float    @default(0)
+  shippingAmount      Float    @default(0)
+  taxAmount           Float    @default(0)
+  currency            String   @default("SAR")
+  paymentMethod       String?
+  shippingMethod      String?
+  shippingAddress     String?
+  notes               String?
+  sallaOrderUrl       String?
+  orderedAt           DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  items        OrderItem[]
+
+  @@unique([organizationId, externalSallaId])
+  @@index([organizationId, status])
+  @@index([organizationId, customerId])
+  @@index([organizationId, orderedAt])
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  productId    String?
+  name         String
+  quantity     Int      @default(1)
+  unitPrice    Float    @default(0)
+  totalPrice   Float    @default(0)
+  sku          String?
+  imageUrl     String?
+  createdAt    DateTime @default(now())
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  organizationId String
+  externalSallaId String?
+  name           String
+  description    String?
+  price          Float    @default(0)
+  sku            String?
+  imageUrl       String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orderItems   OrderItem[]
+
+  @@unique([organizationId, externalSallaId])
+  @@index([organizationId])
+}
+
+model SavedReply {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  body           String
+  category       String?
+  shortcut       String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, category])
+}
+
+model WhatsAppTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  language       String   @default("ar")
+  category       String   @default("MARKETING")
+  body           String
+  variables      String?
+  status         String   @default("PENDING")
+  externalId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model Automation {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  triggerType    AutomationTriggerType
+  triggerConfig  Json?
+  actionType     AutomationActionType
+  actionConfig   Json?
+  conditions     Json?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  runs         AutomationRun[]
+
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+}
+
+model AutomationRun {
+  id            String   @id @default(cuid())
+  automationId  String
+  organizationId String
+  triggerEntityId String?
+  triggeredById  String?
+  result        String?
+  isSuccess     Boolean  @default(true)
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+
+  automation  Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  triggeredBy User?      @relation(fields: [triggeredById], references: [id])
+
+  @@index([automationId])
+  @@index([organizationId])
+}
+
+model AiSettings {
+  id                String  @id @default(cuid())
+  organizationId    String  @unique
+  isEnabled         Boolean @default(false)
+  tone              String  @default("friendly")
+  storeName         String?
+  storeDescription  String?
+  shippingPolicy    String?
+  returnPolicy      String?
+  exchangePolicy    String?
+  paymentPolicy     String?
+  deliveryTime      String?
+  customInstructions String?
+  forbiddenPhrases  String?
+  autoReplyEnabled  Boolean @default(false)
+  maxReplyLength    Int     @default(500)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeBaseArticle {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  content        String
+  category       String?
+  tags           String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  priceMonthly Float   @default(0)
+  priceYearly  Float   @default(0)
+  maxAgents   Int      @default(1)
+  maxConversations Int @default(500)
+  maxMessages  Int     @default(1000)
+  maxTemplates Int     @default(10)
+  maxAutomations Int   @default(5)
+  features    String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id              String             @id @default(cuid())
+  organizationId  String
+  planId          String
+  status          SubscriptionStatus @default(TRIALING)
+  trialEndsAt     DateTime?
+  currentPeriodStart DateTime         @default(now())
+  currentPeriodEnd   DateTime
+  cancelledAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  organizationId String
+  invoiceNumber  String   @unique
+  planId         String?
+  amount         Float    @default(0)
+  tax            Float    @default(0)
+  total          Float    @default(0)
+  currency       String   @default("SAR")
+  status         String   @default("draft")
+  dueDate        DateTime
+  paidAt         DateTime?
+  notes          String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("InvoiceCreator", fields: [createdById], references: [id])
+  payments     Payment[]
+
+  @@index([organizationId])
+  @@index([invoiceNumber])
+  @@index([status])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  invoiceId     String
+  organizationId String
+  amount        Float    @default(0)
+  currency      String   @default("SAR")
+  method        String?
+  transactionId String?
+  notes         String?
+  paidAt        DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([organizationId])
+}
+
+model ClientRequest {
+  id             String              @id @default(cuid())
+  organizationId String
+  type           ClientRequestType
+  status         ClientRequestStatus @default(PENDING)
+  priority       String              @default("normal")
+  contactName    String?
+  phone          String?
+  subject        String?
+  description    String?
+  assignedToId   String?
+  notes          String?
+  createdById    String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedTo   User?        @relation("ClientRequestAssignee", fields: [assignedToId], references: [id])
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  title          String
+  body           String
+  type           String   @default("info")
+  link           String?
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([organizationId])
+}
+
+model WebhookEvent {
+  id             String          @id @default(cuid())
+  organizationId String?
+  provider       WebhookProvider
+  externalEventId String?
+  eventType      String
+  payload        Json?
+  status         String          @default("received")
+  processedAt    DateTime?
+  errorMessage   String?
+  retryCount     Int             @default(0)
+  idempotencyKey String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@unique([provider, externalEventId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([idempotencyKey])
+}
+
+model IntegrationError {
+  id             String          @id @default(cuid())
+  organizationId String
+  integration    IntegrationType
+  errorCode      String?
+  message        String
+  rawPayload     Json?
+  resolved       Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, integration])
+  @@index([resolved])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  action         String
+  entityType     String?
+  entityId       String?
+  metadata       Json?
+  ip             String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  user         User?         @relation(fields: [userId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model ApiUsage {
+  id             String   @id @default(cuid())
+  organizationId String
+  endpoint       String
+  method         String   @default("GET")
+  statusCode     Int?
+  ip             String?
+  userAgent      String?
+  responseTimeMs Int?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+model MessageQuotaUsage {
+  id             String   @id @default(cuid())
+  organizationId String
+  month          Int
+  year           Int
+  count          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, month, year])
+  @@index([organizationId])
+}
